@@ -1,105 +1,126 @@
 #include <iostream>
-#include <unordered_map>
+#include <fstream>
 #include <string>
-using namespace std;
+#include <sstream>
 
-// Base class for all administrative members
-class AdminMember {
-protected:
-    string name;
-    string email;
-    string phone;
-    string room;
+// Function to trim spaces from both ends of a string
+std::string trim(const std::string& str) {
+    size_t first = str.find_first_not_of(' ');
+    if (first == std::string::npos)
+        return "";
+    size_t last = str.find_last_not_of(' ');
+    return str.substr(first, last - first + 1);
+}
 
-public:
-    AdminMember(string nm, string em, string ph, string rm) 
-        : name(nm), email(em), phone(ph), room(rm) {}
+// Function to read a field from the CSV file, handling quoted fields
+std::string readField(std::istringstream& ss) {
+    std::string field;
+    char ch;
 
-    virtual void displayContactDetails() {
-        cout << "Name: " << name << endl;
-        cout << "Email: " << email << endl;
-        cout << "Phone: " << phone << endl;
-        cout << "Room: " << room << endl;
+    if (ss.peek() == '"') {
+        // Quoted field, read until the closing quote
+        ss.get(ch); // Consume the initial quote
+        while (ss.get(ch)) {
+            if (ch == '"') {
+                if (ss.peek() == '"') {
+                    // Double quote within the field, treat as a literal quote
+                    field += '"';
+                    ss.get(ch);
+                } else {
+                    // End of the quoted field
+                    break;
+                }
+            } else {
+                field += ch;
+            }
+        }
+        // Consume the comma after the closing quote
+        ss.get(ch); // This should be the comma separating fields
+    } else {
+        // Unquoted field, read until the next comma
+        std::getline(ss, field, ',');
     }
 
-    string getName() const {
-        return name;
-    }
-};
+    return trim(field);
+}
 
-// Derived class for Deans and Associate Deans
-class Dean : public AdminMember {
-protected:
-    string designation;
-
-public:
-    Dean(string nm, string em, string ph, string rm, string desig) 
-        : AdminMember(nm, em, ph, rm), designation(desig) {}
-
-    void displayContactDetails() override {
-        cout << "Designation: " << designation << endl;
-        AdminMember::displayContactDetails();
-    }
-};
-
-// Derived class for the Registrar
-class Registrar : public AdminMember {
-public:
-    Registrar(string nm, string em, string ph, string rm) 
-        : AdminMember(nm, em, ph, rm) {}
-
-    void displayContactDetails() override {
-        cout << "Role: Registrar" << endl;
-        AdminMember::displayContactDetails();
-    }
-};
-
-// Administrative structure that manages contacts
-class AdminStructure {
-private:
-    unordered_map<string, AdminMember*> adminMembers;
-
-public:
-    void addMember(string name, AdminMember* member) {
-        adminMembers[name] = member;
+// Function to extract room data, stopping before the second comma
+std::string extractRoomData(const std::string& room) {
+    size_t firstComma = room.find(',');
+    if (firstComma == std::string::npos) {
+        // No commas in the room string, return it as is
+        return room;
     }
 
-    void getContactDetails(string name) {
-        if (adminMembers.find(name) != adminMembers.end()) {
-            adminMembers[name]->displayContactDetails();
-        } else {
-            cout << "No contact details found for " << name << endl;
+    // Find the second comma
+    size_t secondComma = room.find(',', firstComma + 1);
+    if (secondComma != std::string::npos) {
+        // Return the substring up to the second comma
+        return room.substr(0, secondComma);
+    }
+
+    // If there's only one comma, return the substring up to that comma
+    return room;
+}
+
+// Function to find and print contact details
+void findContact(const std::string& filePath, const std::string& searchName) {
+    std::ifstream file(filePath);
+    if (!file.is_open()) {
+        std::cerr << "Error opening file: " << filePath << std::endl;
+        return;
+    }
+
+    std::string line;
+    bool contactFound = false;
+
+    while (std::getline(file, line)) {
+        std::istringstream ss(line);
+        std::string name, designation, email, phone, room;
+
+        // Read name, designation, email, phone, and room, handling quoted fields
+        name = readField(ss);
+        designation = readField(ss);
+        email = readField(ss);
+        phone = readField(ss);
+        room = readField(ss);  // Room field might contain commas
+
+        // Check if the name matches the search query
+        if (name == searchName) {
+            std::cout << "Contact details for " << searchName << ":\n";
+            std::cout << "Designation: " << designation << std::endl;
+            std::cout << "Email: " << email << std::endl;
+            std::cout << "Phone: " << phone << std::endl;
+
+            // Print room data, stopping at the second comma
+            std::cout << "Room: " << extractRoomData(room) << std::endl;
+
+            contactFound = true;
+            break; // Stop after finding the contact, preventing further printing
         }
     }
 
-    ~AdminStructure() {
-        for (auto &member : adminMembers) {
-            delete member.second; // Free allocated memory
-        }
+    if (!contactFound) {
+        std::cerr << "Contact not found." << std::endl;
     }
-};
 
-// Main function to test the administrative structure
+    file.close();
+}
+
 int main() {
-    AdminStructure adminStructure;
-
-    // Adding members to the structure
-    adminStructure.addMember("Pankaj Vajpayee", 
-        new Dean("Pankaj Vajpayee", "dcre@iiitd.ac.in", "91-11-26907515", "Not Provided", "Dean of Corporate Relations & Entrepreneurship"));
+    std::string filePath = "/Users/parulahlawat/Downloads/iiitd_administration.csv";
     
-    adminStructure.addMember("Sanjit Krishnan Kaul", 
-        new Dean("Sanjit Krishnan Kaul", "adofa@iiitd.ac.in", "91-11-26907457", "Not Provided", "Associate Dean of Faculty Affairs"));
-    
-    adminStructure.addMember("Registrar", 
-        new Registrar("Prof. Ranjan Bose", "bose@iiitd.ac.in", "91-11-26907481", "A-707, R & D Block"));
+    while (true) {
+        std::string searchName;
+        std::cout << "\nEnter the name of the person to get contact details (or type 'exit' to quit): ";
+        std::getline(std::cin, searchName);
 
-    // Main function for user input to fetch contact details
-    string queryName;
-    cout << "Enter the name of the person to get contact details: ";
-    getline(cin, queryName); // Get input from the user
+        if (searchName == "exit") {
+            break;
+        }
 
-    // Fetch and display the contact details
-    adminStructure.getContactDetails(queryName);
+        findContact(filePath, searchName);
+    }
 
     return 0;
 }
