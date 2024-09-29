@@ -1,126 +1,168 @@
 #include <iostream>
-#include <fstream>
 #include <string>
-#include <sstream>
+#include <limits> // Include this header for numeric_limits
 
-// Function to trim spaces from both ends of a string
-std::string trim(const std::string& str) {
-    size_t first = str.find_first_not_of(' ');
-    if (first == std::string::npos)
-        return "";
-    size_t last = str.find_last_not_of(' ');
-    return str.substr(first, last - first + 1);
-}
+using namespace std;
 
-// Function to read a field from the CSV file, handling quoted fields
-std::string readField(std::istringstream& ss) {
-    std::string field;
-    char ch;
+const int MAX_PERSONNEL = 30; // Maximum number of personnel per department
 
-    if (ss.peek() == '"') {
-        // Quoted field, read until the closing quote
-        ss.get(ch); // Consume the initial quote
-        while (ss.get(ch)) {
-            if (ch == '"') {
-                if (ss.peek() == '"') {
-                    // Double quote within the field, treat as a literal quote
-                    field += '"';
-                    ss.get(ch);
-                } else {
-                    // End of the quoted field
-                    break;
-                }
-            } else {
-                field += ch;
+class Person {
+public:
+    string name;
+    string designation;
+    string email;
+    string phone;
+    string room;
+
+    Person() = default;
+
+    Person(const string& n, const string& d, const string& e, const string& p, const string& r)
+        : name(n), designation(d), email(e), phone(p), room(r) {}
+};
+
+class AdminDepartment {
+protected:
+    Person personnel[MAX_PERSONNEL];
+    int personnelCount;
+
+public:
+    AdminDepartment() : personnelCount(0) {}
+
+    virtual void addPerson(const Person& person) {
+        if (personnelCount < MAX_PERSONNEL) {
+            personnel[personnelCount++] = person;
+        } else {
+            cout << "Error: Maximum personnel limit reached in this department." << endl;
+        }
+    }
+
+    virtual void printPersonnel() const {
+        for (int i = 0; i < personnelCount; ++i) {
+            cout << "Name: " << personnel[i].name
+                 << ", Designation: " << personnel[i].designation
+                 << ", Email: " << personnel[i].email
+                 << ", Phone: " << personnel[i].phone
+                 << ", Room: " << personnel[i].room << endl;
+        }
+    }
+
+    virtual Person* findPersonByName(const string& name) {
+        for (int i = 0; i < personnelCount; ++i) {
+            if (personnel[i].name == name) {
+                return &personnel[i];
             }
         }
-        // Consume the comma after the closing quote
-        ss.get(ch); // This should be the comma separating fields
-    } else {
-        // Unquoted field, read until the next comma
-        std::getline(ss, field, ',');
+        return nullptr;
     }
+};
 
-    return trim(field);
-}
+class I_R_D_Department : public AdminDepartment {
+public:
+    I_R_D_Department() : AdminDepartment() {}
+};
 
-// Function to extract room data, stopping before the second comma
-std::string extractRoomData(const std::string& room) {
-    size_t firstComma = room.find(',');
-    if (firstComma == std::string::npos) {
-        // No commas in the room string, return it as is
-        return room;
-    }
+class Acad_emics_Dept : public AdminDepartment {
+public:
+    Acad_emics_Dept() : AdminDepartment() {}
+};
 
-    // Find the second comma
-    size_t secondComma = room.find(',', firstComma + 1);
-    if (secondComma != std::string::npos) {
-        // Return the substring up to the second comma
-        return room.substr(0, secondComma);
-    }
+class Student_Affairs_Depart_ment : public AdminDepartment {
+public:
+    Student_Affairs_Depart_ment() : AdminDepartment() {}
+};
 
-    // If there's only one comma, return the substring up to that comma
-    return room;
-}
+class StorePurchase : public AdminDepartment {
+public:
+    StorePurchase() : AdminDepartment() {}
+};
 
-// Function to find and print contact details
-void findContact(const std::string& filePath, const std::string& searchName) {
-    std::ifstream file(filePath);
-    if (!file.is_open()) {
-        std::cerr << "Error opening file: " << filePath << std::endl;
-        return;
-    }
+class Library : public AdminDepartment {
+public:
+    Library() : AdminDepartment() {}
+};
 
-    std::string line;
-    bool contactFound = false;
-
-    while (std::getline(file, line)) {
-        std::istringstream ss(line);
-        std::string name, designation, email, phone, room;
-
-        // Read name, designation, email, phone, and room, handling quoted fields
-        name = readField(ss);
-        designation = readField(ss);
-        email = readField(ss);
-        phone = readField(ss);
-        room = readField(ss);  // Room field might contain commas
-
-        // Check if the name matches the search query
-        if (name == searchName) {
-            std::cout << "Contact details for " << searchName << ":\n";
-            std::cout << "Designation: " << designation << std::endl;
-            std::cout << "Email: " << email << std::endl;
-            std::cout << "Phone: " << phone << std::endl;
-
-            // Print room data, stopping at the second comma
-            std::cout << "Room: " << extractRoomData(room) << std::endl;
-
-            contactFound = true;
-            break; // Stop after finding the contact, preventing further printing
+void findAndDisplayContactInfo(AdminDepartment* departments[], int numDepartments, const string& name) {
+    for (int i = 0; i < numDepartments; ++i) {
+        Person* person = departments[i]->findPersonByName(name);
+        if (person) {
+            cout<< "\nContact Information for " << name << ":" << endl;
+            cout<< "Designation: " << person->designation << endl;
+            cout<< "Room: " << person->room << endl;
+            cout<< "Phone: " << person->phone << endl;
+            cout<< "Email: " << person->email << endl;
+            return;
         }
     }
-
-    if (!contactFound) {
-        std::cerr << "Contact not found." << std::endl;
-    }
-
-    file.close();
+    cout << "\nPerson not found." << endl;
 }
 
 int main() {
-    std::string filePath = "/Users/parulahlawat/Downloads/iiitd_administration.csv";
-    
-    while (true) {
-        std::string searchName;
-        std::cout << "\nEnter the name of the person to get contact details (or type 'exit' to quit): ";
-        std::getline(std::cin, searchName);
+    const int numDepartments = 5;
+    I_R_D_Department I_R_D_Department;
+    Acad_emics_Dept acad_emics_Dept;
+    Student_Affairs_Depart_ment studentAffairsDepartment;
+    StorePurchase storePurchaseDepartment;
+    Library libraryDepartment;
 
-        if (searchName == "exit") {
-            break;
-        }
+    AdminDepartment* departments[numDepartments] = {
+        &I_R_D_Department,
+        &acad_emics_Dept,
+        &studentAffairsDepartment,
+        &storePurchaseDepartment,
+        &libraryDepartment
+    };
 
-        findContact(filePath, searchName);
-    }
+    // Add personnel to I_R_D_Department (only those with "Innovation, Research & Development" or "IRD" in their designation)
+    I_R_D_Department.addPerson(Person("Vivek Ashok Bohara", "Dean of Innovation, Research & Development", "dird@iiitd.ac.in", "91-11-26907454", "Not Provided"));
+    I_R_D_Department.addPerson(Person("Debarka Sengupta", "Associate Dean of Innovation, Research & Development", "adird@iiitd.ac.in", "91-11-26907446", "Not Provided"));
+    I_R_D_Department.addPerson(Person("Kapil Dev Garg", "Administrative Officer (IRD)", "kapil.garg@iiitd.ac.in", "011 26907 454", "Room A-306, Academic Block"));
+    I_R_D_Department.addPerson(Person("Imran Khan", "Junior Administrative Officer (IRD) (SG)", "imran@iiitd.ac.in", "011 26907 454", "Room A-307, Academic Block"));
 
+    // Add personnel to Acad_emics_Dept
+    acad_emics_Dept.addPerson(Person("Sumit J Darak", "Dean of Academic Affairs", "doaa@iiitd.ac.in", "91-11-26907427", "Not Provided"));
+    acad_emics_Dept.addPerson(Person("Anshu Dureja", "Deputy Administrative Officer (Academics)", "anshu@iiitd.ac.in", "011 26907 135", "Room B-208, Academic Block"));
+    acad_emics_Dept.addPerson(Person("Ashutosh Brahma", "Administrative Officer (Academics)", "ashutosh@iiitd.ac.in", "011 26907 135", "Room B-202, Academic Block"));
+    acad_emics_Dept.addPerson(Person("Akanksha", "Junior Administrative Officer (Academics)", "akanksha@iiitd.ac.in", "011 26907 135", "Room B-207, Academic Block"));
+    acad_emics_Dept.addPerson(Person("Ashish Aggarwal", "Junior Administrative Officer (Academics)", "ashish@iiitd.ac.in", "011 26907 135", "Room B-207, Academic Block"));
+    acad_emics_Dept.addPerson(Person("Aakash Gupta", "Junior Administrative Officer (Academics)", "aakash@iiitd.ac.in", "011 26907 135", "Room B-207, Academic Block"));
+    acad_emics_Dept.addPerson(Person("Mohit Kumar", "Junior Administrative Officer (Academics)", "mohit@iiitd.ac.in", "011 26907 135", "Room B-208, Academic Block"));
+    acad_emics_Dept.addPerson(Person("Nisha Narwal", "Assistant Administrative Officer (Academics) (SG)", "nisha@iiitd.ac.in", "011 26907 135", "Room B-207, Academic Block"));
+    acad_emics_Dept.addPerson(Person("Prachi Mukherjee", "Assistant Administrative Officer (Academics) (SG)", "prachi@iiitd.ac.in", "011 26907 135", "Room B-207, Academic Block"));
+    acad_emics_Dept.addPerson(Person("Raju Biswas", "Junior Administrative Officer (Academics)", "raju@iiitd.ac.in", "011 26907 135", "Room B-208, Academic Block"));
+    acad_emics_Dept.addPerson(Person("Sanjana Soni", "Junior Administrative Officer (Academics)", "sanjana@iiitd.ac.in", "011 26907 135", "Room B-207, Academic Block"));
+    acad_emics_Dept.addPerson(Person("Sudhanshu Tamta", "Junior Administrative Officer (Academics) (SG)", "sudhanshut@iiitd.ac.in", "011 26907 565", "Room No. B-207 (Academic Block)"));
+
+    // Add personnel to Student Affairs
+    studentAffairsDepartment.addPerson(Person("Shobha Sundar Ram", "Dean of Student Affairs", "dosa@iiitd.ac.in", "91-11-26907460", "Not Provided"));
+    studentAffairsDepartment.addPerson(Person("Dr. Ravi Bhasin", "Administrative Officer (Student Affairs)", "ravi@iiitd.ac.in", "011 26907 460", "Room A-207-1, Academic Block"));
+    studentAffairsDepartment.addPerson(Person("Jagadanand Dwivedi", "Junior Administrative Officer (Student Affairs) (SG)", "jagadanand@iiitd.ac.in", "011 26907 460", "Room A-207-1, Academic Block"));
+    studentAffairsDepartment.addPerson(Person("Sonal Garg", "Junior Administrative Officer (Student Affairs) (SG)", "sonal@iiitd.ac.in", "011 26907 577", "Room No. A-207-1 (Academic Block)"));
+    studentAffairsDepartment.addPerson(Person("Khushpinder Pal Sharma", "Counselling Psychologist", "khushpinder@iiitd.ac.in", "011 26907 460", "Room A-206, Academic Block"));
+
+    // Add personnel to Store & Purchase
+    storePurchaseDepartment.addPerson(Person("Ajay Kumar", "Administrative Officer (Store & Purchase)", "ajay@iiitd.ac.in", "011 26907 561", "Room A-103(2), Academic Block"));
+    storePurchaseDepartment.addPerson(Person("Nidhi Yadav", "Assistant Administrative Officer (Store & Purchase) (SG)", "nidhi@iiitd.ac.in", "011 26907 561", "Room A-108, Academic Block"));
+    storePurchaseDepartment.addPerson(Person("Sangam Kumar Yadav", "Junior Administrative Officer (Store & Purchase)", "sangam@iiitd.ac.in", "011 26907 561", "Room A-106, Academic Block"));
+
+    // Add personnel to Library
+    libraryDepartment.addPerson(Person("Rajendra Singh", "Library Officer (SG)", "rajendra@iiitd.ac.in", "011-26907510", "Library Block"));
+    libraryDepartment.addPerson(Person("Parikshita Behera", "Junior Library Officer", "parikshita@iiitd.ac.in", "011-26907503", "Library Block"));
+
+    string name;
+    char choice;
+
+    do {
+        cout << "Enter name to get contact information: ";
+        getline(cin, name);
+        findAndDisplayContactInfo(departments, numDepartments, name);
+
+        cout << "\nDo you want to search for another person? (Y/N): ";
+        cin >> choice;
+        cin.ignore(numeric_limits<streamsize>::max(), '\n'); // Clear the input buffer
+        cout << endl;
+
+    } while (choice == 'Y' || choice == 'y');
+
+    cout << "Exiting the program. Goodbye!" << endl;
     return 0;
 }
